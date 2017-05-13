@@ -1,0 +1,44 @@
+fastload <<EOF
+sessions 16;
+
+logon 127.0.0.1/dbc,dbc;
+
+DROP TABLE edureka.UV_Customer_Stg;
+DROP TABLE edureka.ET_Customer_Stg;
+
+delete from edureka.Customer_Stg;
+
+set record vartext ",";
+
+define
+Customer_ID (varchar(15)),
+Customer_FName (varchar(15)),
+Customer_LName (varchar(15)),
+Customer_Dob (varchar(15)),
+Customer_City (varchar(15)),
+Customer_State (varchar(2)),
+Customer_Phone (varchar(10)),
+
+file=Customer.txt
+;
+
+begin loading edureka.Customer_Stg
+errorfiles edureka.ET_Customer_Stg, edureka.UV_Customer_Stg
+;
+
+insert into edureka.Customer_Stg
+(
+:Customer_ID,
+:Customer_FName,
+:Customer_LName,
+:Customer_Dob,
+:Customer_City,
+:Customer_State,
+:Customer_Phone
+);
+
+end loading;
+
+logoff;
+
+EOF

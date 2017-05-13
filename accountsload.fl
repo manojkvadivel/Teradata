@@ -1,0 +1,43 @@
+fastload <<EOF
+sessions 16;
+
+logon 127.0.0.1/dbc,dbc;
+
+DROP TABLE edureka.UV_Accounts_Stg;
+DROP TABLE edureka.ET_Accounts_Stg;
+
+delete from edureka.Accounts_Stg;
+
+set record vartext ",";
+
+define
+Customer_ID (varchar(15)),
+Account_ID (varchar(15)),
+Account_Open_Dt (varchar(15)),
+Account_Close_Dt (varchar(15)),
+Account_Type_Cd (varchar(15)),
+Account_Balance (varchar(15)),
+
+file=Accounts.txt
+;
+
+begin loading edureka.Accounts_Stg
+errorfiles edureka.ET_Accounts_Stg, edureka.UV_Accounts_Stg
+;
+
+insert into edureka.Accounts_Stg
+(
+:Customer_Id,
+:Account_ID,
+:Account_Open_Dt,
+:Account_Close_Dt,
+:Account_Type_Cd,
+:Account_Balance
+
+);
+
+end loading;
+
+logoff;
+
+EOF

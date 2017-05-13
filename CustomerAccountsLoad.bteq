@@ -1,0 +1,55 @@
+bteq <<EOF
+
+.LOGON 127.0.0.1/dbc,dbc;
+
+.MAXERROR 1
+
+--Customer Table
+DELETE FROM edureka.Customer;
+INSERT INTO edureka.Customer
+(
+	Customer_ID,
+	Customer_FName,
+	Customer_LName,
+	Customer_Dob,
+	Customer_City,
+	Customer_State,
+	Customer_Phone
+)
+select
+	STG.Customer_ID,
+	STG.Customer_FName,
+	STG.Customer_LName,
+	STG.Customer_Dob,
+	STG.Customer_City,
+	STG.Customer_State,
+	STG.Customer_Phone
+FROM edureka.Customer_Stg STG
+;
+
+--Accounts Table
+DELETE FROM edureka.Accounts ;
+INSERT INTO edureka.Accounts
+(
+	Customer_Id,
+	Account_ID,
+	Account_Open_Dt,
+	Account_Close_Dt,
+	Account_Type_Cd,
+	Account_Balance
+)
+select
+	STG.Customer_Id,
+	STG.Account_ID,
+	STG.Account_Open_Dt,
+	STG.Account_Close_Dt,
+	STG.Account_Type_Cd,
+	STG.Account_Balance
+FROM edureka.Accounts_Stg STG
+;
+
+.LOGOFF
+
+.QUIT 0;
+
+EOF

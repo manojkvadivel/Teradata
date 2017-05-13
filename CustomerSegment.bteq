@@ -1,0 +1,131 @@
+bteq <<EOF
+
+.LOGON 127.0.0.1/dbc,dbc;
+
+.MAXERROR 1
+
+/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Write a BTEQ script named as CustomerSegment.bteq. This BTEQ script should have below steps.
+/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+1.Create a Volatile table named as "Customer_First_Account" with columns Customer_Id and First_Account_Dt.
+Write an Insert query to identify the first account open date for each customer from Accounts table and 
+insert into "Customer_First_Account" table. 
+If the customer has multiple accounts, then the oldest Account_Open_Dt should be considered.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+
+CREATE MULTISET VOLATILE TABLE Customer_First_Account 
+     (
+      Customer_Id INTEGER,
+      First_Account_Dt DATE FORMAT 'yyyy-mm-dd'
+	  )
+UNIQUE PRIMARY INDEX ( Customer_Id )
+ON COMMIT PRESERVE ROWS;
+
+INSERT INTO Customer_First_Account
+(
+	Customer_Id,
+	First_Account_Dt
+)
+SELECT
+	accnt.Customer_Id,
+	accnt.Account_Open_Dt as First_Account_Dt
+
+FROM edureka.Accounts accnt
+	
+QUALIFY ROW_NUMBER () OVER (partition by Customer_Id order by Account_Open_Dt)=1 --first account open date/customer
+;
+
+/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+2.Create a Volatile table named as "Customer_Accounts" with columns Customer_Id, Savings_Balance, Credit_Balance and Mortgage_Balance.
+Write an insert query to calculate the savings account balance, credit card balance and mortgage balance 
+from Accounts table for each customer and insert into "Customer_Accounts" table. 
+For each customer, there should be only one record in this table which contains their savings account balance, credit card balance and mortgage balance.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+
+CREATE MULTISET VOLATILE TABLE Customer_Accounts 
+	(
+      Customer_Id INTEGER,
+      Savings_Balance INTEGER,
+      Credit_Balance INTEGER,
+      Mortgage_Balance INTEGER)
+UNIQUE PRIMARY INDEX ( Customer_Id )
+ON COMMIT PRESERVE ROWS;
+
+INSERT INTO Customer_Accounts
+(
+	Customer_Id,
+	Savings_Balance,
+	Credit_Balance,
+	Mortgage_Balance
+)
+SELECT
+	bal.Customer_Id,
+	bal.Savings_Balance,
+	bal.Credit_Balance,
+	bal.Mortgage_Balance
+FROM
+(
+	SELECT
+		Customer_Id,
+		sum(coalesce( case when Account_Type_Cd=1 then Account_Balance end, 0)) as Savings_Balance,
+		sum(coalesce( case when Account_Type_Cd=2 then Account_Balance end, 0)) as Credit_Balance,
+		sum(coalesce( case when Account_Type_Cd=3 then Account_Balance end, 0)) as Mortgage_Balance,
+		sum(coalesce( case when Account_Type_Cd=4 then Account_Balance end, 0)) as PPF_Balance
+	FROM edureka.Accounts accnt
+	
+	WHERE Account_Type_Cd <> 4   --Excluding PPF
+	GROUP BY 1
+) bal
+;
+/*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+3.Write a delete query to delete existing data from "customer_segment" table
+Insert into "Customer_Segment" table from Customer, "Customer_Accounts" and "Customer_First_Account" tables. Criteria for each column is given below.
+Column Customer_Type is set to N, if the first account opened date (First_Account_Dt from "Customer_First_Account" table) of the customer is within last 3 months, otherwise it is set to E.
+Column "Customer_Segment"ation_Value is calculated based on the segmentation criteria provided in problem statement. 
+Compare the Savings_Balance, Credit_Balance and Mortgage_Balance against the criteria provided and assign "Customer_Segment"ation_value as High_Networth, Medium_Networth or Low_Networth.
+Column Segmentation_start_dt should be set to current date and segmentation_end_dt should be set to 9999-12-31.
+@@@@@@@@@@@@@@@@@@@@@@@@@@22@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
+DELETE FROM edureka.customer_segment;
+INSERT INTO edureka.customer_segment
+(
+	Customer_Id,
+	Customer_FName,
+	Customer_LName,
+	Customer_Type,
+	Customer_Segment_Value,
+	Segment_Start_Dt,
+	Segment_End_Dt
+)
+SELECT
+	cust.Customer_Id,
+	cust.Customer_FName,
+	cust.Customer_LName,
+	case 
+		when cfa.First_Account_Dt between (CURRENT_DATE- INTERVAL '3' MONTH) and (CURRENT_DATE) then 'N' 
+		else 'E'
+	end as Customer_Type,
+	CASE 
+		WHEN ca.Savings_Balance > 500000 OR ca.Credit_Balance > 300000 OR ca.Mortgage_Balance > 5000000 THEN 'High-Networth'
+		WHEN ca.Savings_Balance > 200000 OR ca.Credit_Balance > 100000 OR ca.Mortgage_Balance > 1000000 THEN 'Medium-Networth'
+		WHEN ca.Savings_Balance < 200000 OR ca.Credit_Balance < 100000 OR ca.Mortgage_Balance < 1000000 THEN 'Low-Networth'
+		ELSE 'Others'
+	END as Customer_Segment_Value,
+	CURRENT_DATE as Segment_Start_Dt,
+	cast('9999-12-31' as date) as Segment_End_Dt
+
+FROM edureka.Customer cust
+
+JOIN Customer_Accounts  ca
+ON cust.Customer_Id = ca.Customer_Id
+
+JOIN Customer_First_Account cfa
+ON cust.Customer_Id = cfa.Customer_Id
+;
+
+.LOGOFF
+
+.QUIT 0;
+
+EOF

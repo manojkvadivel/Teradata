@@ -1,0 +1,12 @@
+insert into edureka.Account_type (Account_Type_Cd,Account_Type_Desc ) values (01,'Savings');
+insert into edureka.Account_type (Account_Type_Cd,Account_Type_Desc ) values (02,'Credit Card');
+insert into edureka.Account_type (Account_Type_Cd,Account_Type_Desc ) values (03,'Mortgage');
+insert into edureka.Account_type (Account_Type_Cd,Account_Type_Desc ) values (04,'PPF');
+select * from edureka.Account_type;
+/*
+Account_Type_Cd		Account_Type_Desc
+		1			Savings   
+		2			Credit Car
+		3			Mortgage  
+		4			PPF       
+*/
